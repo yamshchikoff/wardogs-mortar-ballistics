@@ -1,0 +1,369 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Wardogs — миномёт: дистанция и поправка</title>
+<style>
+  :root{
+    color-scheme:dark;          /* тёмными становятся и скроллбар, автозаполнение, выделение */
+    --bg:#0e1210; --panel:#161c19; --line:#2a332e; --line2:#3a453e;
+    --txt:#dfe7e1; --dim:#8b9a90; --accent:#8fd14f; --warn:#e0b33a; --err:#e06c5a;
+  }
+  html{background:var(--bg)}    /* чтобы фон был тёмным и за пределами body */
+  ::selection{background:#2f4a20;color:#fff}
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--txt);
+       font:14px/1.5 ui-monospace,"SF Mono",Menlo,Consolas,monospace;
+       padding:18px;max-width:680px;margin-inline:auto}
+  h1{font-size:13px;letter-spacing:.18em;text-transform:uppercase;color:var(--dim);
+     font-weight:600;margin:0 0 16px}
+
+  /* ---- поля ввода ---- */
+  .field{margin-bottom:10px}
+  .field label{display:block;font-size:11px;letter-spacing:.14em;text-transform:uppercase;
+               color:var(--dim);margin-bottom:4px}
+  .field label span{text-transform:none;letter-spacing:0;color:#67756c}
+  .field-in{display:flex;align-items:center;gap:10px}
+  input[type=text]{flex:1;min-width:0;background:#0b0f0d;border:1px solid var(--line);
+       color:var(--txt);font:inherit;font-size:17px;padding:10px 12px;border-radius:6px}
+  input[type=text]:focus{outline:none;border-color:var(--accent)}
+  input.bad{border-color:var(--err)}
+  .echo{font-size:12px;color:var(--dim);white-space:nowrap;min-width:112px;text-align:right;
+        font-variant-numeric:tabular-nums}
+  .echo.ok{color:var(--accent)}
+  .echo.bad{color:var(--err)}
+  .field.opt input{border-style:dashed}
+
+  /* ---- результат ---- */
+  .tiles{display:flex;gap:10px;margin:16px 0 10px;flex-wrap:wrap}
+  .tile{flex:1 1 190px;background:var(--panel);border:1px solid var(--line);
+        border-radius:10px;padding:16px 18px}
+  .tile.hero{border-color:var(--line2)}
+  .tile h2{margin:0 0 8px;font-size:11px;letter-spacing:.14em;text-transform:uppercase;
+           color:var(--dim);font-weight:600}
+  .big{font-size:42px;line-height:1;font-weight:700;letter-spacing:-.02em;
+       font-variant-numeric:tabular-nums}
+  .big.idle{font-size:26px;color:var(--dim);font-weight:400}
+  .big u{font-size:17px;color:var(--dim);margin-left:5px;text-decoration:none}
+  .tile .sub{color:var(--dim);font-size:12px;margin-top:7px;min-height:18px;
+             font-variant-numeric:tabular-nums}
+  .tile .sub b{color:var(--accent);font-weight:600}
+  .sub .badline{color:var(--err)}
+
+  /* ---- поправка ---- */
+  .corr{background:var(--panel);border:1px solid var(--line);border-radius:10px;
+        padding:14px 18px;margin-bottom:10px}
+  .corr h2{margin:0 0 10px;font-size:11px;letter-spacing:.14em;text-transform:uppercase;
+           color:var(--dim);font-weight:600}
+  .cline{display:flex;justify-content:space-between;gap:12px;padding:5px 0;
+         border-bottom:1px solid #202823;font-variant-numeric:tabular-nums}
+  .cline:last-child{border-bottom:none}
+  .cline span{color:var(--dim)}
+  .cline b{font-weight:600}
+  .up{color:var(--warn)}   /* перелёт */
+  .down{color:var(--accent)} /* недолёт */
+  .hit{color:var(--accent)}
+  .note{color:var(--err);font-size:12px;margin-top:8px}
+
+  /* ---- настройки ---- */
+  .set{display:flex;gap:16px;align-items:center;flex-wrap:wrap;
+       border-top:1px solid var(--line);padding-top:12px;margin-top:14px;font-size:12px}
+  .set label{color:var(--dim);display:flex;align-items:center;gap:6px;cursor:pointer}
+  .set input[type=text]{flex:0 0 80px;font-size:13px;padding:5px 8px;text-align:center}
+  button{background:#222c26;color:var(--txt);border:1px solid var(--line);font:inherit;
+         font-size:12px;padding:6px 12px;border-radius:6px;cursor:pointer}
+  button:hover{border-color:var(--accent);color:var(--accent)}
+  .hint{color:var(--dim);font-size:12px;line-height:1.65;margin:14px 0 0}
+  .hint b{color:#aab6ad;font-weight:600}
+  code{color:var(--accent);font-size:12px}
+</style>
+</head>
+<body>
+
+<h1>Wardogs · миномёт</h1>
+
+<div class="field">
+  <label for="base">База <span>— где стоит миномёт</span></label>
+  <div class="field-in">
+    <input type="text" id="base" placeholder="x97.39, y110.04" autofocus spellcheck="false">
+    <div class="echo" id="eBase">—</div>
+  </div>
+</div>
+
+<div class="field">
+  <label for="target">Цель</label>
+  <div class="field-in">
+    <input type="text" id="target" placeholder="x104.12, y118.70" spellcheck="false">
+    <div class="echo" id="eTarget">—</div>
+  </div>
+</div>
+
+<div class="field opt">
+  <label for="rf">Дальномер <span>— до высшей точки цели, метры; «+» если цель выше базы</span></label>
+  <div class="field-in">
+    <input type="text" id="rf" placeholder="+245.30" spellcheck="false">
+    <div class="echo" id="eRf">—</div>
+  </div>
+</div>
+
+<div class="field opt">
+  <label for="corr">Поправка <span>— куда снаряд попал фактически (необязательно)</span></label>
+  <div class="field-in">
+    <input type="text" id="corr" placeholder="x105.30, y120.15" spellcheck="false">
+    <div class="echo" id="eCorr">—</div>
+  </div>
+</div>
+
+<div class="tiles">
+  <div class="tile">
+    <h2>До цели</h2>
+    <div class="big idle" id="dTarget">—</div>
+    <div class="sub" id="sTarget">введи базу и цель</div>
+  </div>
+  <div class="tile hero" id="tileFix" hidden>
+    <h2>Выставить</h2>
+    <div class="big" id="dFix">—</div>
+    <div class="sub" id="sFix"></div>
+  </div>
+</div>
+
+<div class="corr" id="corrBox" hidden>
+  <h2>Разбор попадания</h2>
+  <div class="cline"><span>отклонение по дальности</span><b id="cRange">—</b></div>
+  <div class="cline"><span>отклонение вбок</span><b id="cSide">—</b></div>
+  <div class="cline"><span>промах всего</span><b id="cMiss">—</b></div>
+  <div class="cline"><span>целиться в</span><b id="cPoint" class="hit">—</b></div>
+  <div class="note" id="cNote" hidden></div>
+</div>
+
+<div class="set">
+  <label>1 единица = <input type="text" id="scale" value="100" spellcheck="false"> м</label>
+  <button id="clearCorr">сбросить поправку</button>
+  <button id="clearAll">очистить всё</button>
+</div>
+
+<p class="hint">
+  <b>Ввод.</b> Формат <code>x97.39, y110.04</code>. Понимаются и просто два числа
+  (<code>97.39 110.04</code>), и запятая как десятичный разделитель, и русская раскладка
+  (<code>х97,39 у110,04</code>) — если забыл переключить язык.
+  <br>
+  <b>Поправка.</b> Считается, что первый выстрел шёл <b>по цели</b>: ошибка берётся как
+  «фактическое попадание минус цель», и новая точка отзеркаливается на ту же величину в другую
+  сторону. Разность высот как раз и вылезает в «отклонении по дальности» — недолёт при цели выше,
+  перелёт при цели ниже.
+  <br>
+  <b>Высота.</b> Дальномер показывает наклонную дальность <code>R</code> до высшей точки цели,
+  а горизонтальная дальность <code>D</code> уже известна из координат. Величина превышения —
+  второй катет: <code>|h| = √(R² − D²)</code>. Знак видно из самого замера, поэтому он задаётся
+  вручную: поставил перед дальностью <code>+</code> — цель выше базы, иначе (без знака или с
+  <code>−</code>) ниже.
+  <br>
+  <b>Оси.</b> X растёт вправо, Y растёт вверх. Азимут поэтому компасный: 0° — север, 90° — восток,
+  дальше по часовой стрелке. «Влево / вправо» в разборе попадания — с точки зрения стрелка,
+  если смотреть от базы на цель.
+</p>
+
+<script>
+(function(){
+  var $ = function(id){ return document.getElementById(id); };
+
+  /* ---------- разбор точки ---------- */
+  // «x97.39, y110.04» · «97.39 110.04» · «х97,39 у110,04» (кириллица) · «X=97.39 Y=110.04»
+  var RE_X = /[xх]\s*[:=]?\s*(-?\d+(?:[.,]\d+)?)/;
+  var RE_Y = /[yуy]\s*[:=]?\s*(-?\d+(?:[.,]\d+)?)/;
+  var RE_N = /-?\d+(?:[.,]\d+)?/g;
+  var f = function(s){ return parseFloat(String(s).replace(',', '.')); };
+
+  function parsePoint(str){
+    if(!str) return null;
+    var t = String(str).toLowerCase().trim();
+    if(!t) return null;
+    var mx = t.match(RE_X), my = t.match(RE_Y);
+    if(mx && my){
+      var px = f(mx[1]), py = f(my[1]);
+      if(isFinite(px) && isFinite(py)) return {x:px, y:py};
+    }
+    var ns = t.match(RE_N);
+    if(ns && ns.length >= 2){
+      var ax = f(ns[0]), ay = f(ns[1]);
+      if(isFinite(ax) && isFinite(ay)) return {x:ax, y:ay};
+    }
+    return null;
+  }
+
+  /* ---------- геометрия ---------- */
+  var DEG = 180 / Math.PI;
+
+  /* Оси Wardogs: X растёт вправо (восток), Y растёт вверх (север).
+     Азимут компасный: 0° север, 90° восток, по часовой стрелке. */
+  function bearing(from, to){
+    var a = Math.atan2(to.x - from.x, to.y - from.y) * DEG;
+    return (a + 360) % 360;
+  }
+  function dist(a, b){ return Math.hypot(b.x - a.x, b.y - a.y); }
+  // точка по азимуту и дальности от base
+  function project(base, az, d){
+    var r = az / DEG;
+    return { x: base.x + d * Math.sin(r), y: base.y + d * Math.cos(r) };
+  }
+  function wrap180(a){ a = (a + 180) % 360; if(a < 0) a += 360; return a - 180; }
+
+  /* ---------- форматирование ---------- */
+  /* Wardogs: 1 единица координат = 100 м, поэтому наружу всё идёт в метрах.
+     Две цифры после точки дают 0.01 ед. = ровно 1 м — округляем до метра. */
+  var DEFAULT_SCALE = 100;
+  function scale(){ var s = f($('scale').value); return (isFinite(s) && s > 0) ? s : DEFAULT_SCALE; }
+  function len(u){ return { v: Math.round(u * scale()), u: 'м' }; }
+  function lenTxt(u){ var l = len(u); return l.v + ' ' + l.u; }
+  var HALF_M = function(u){ return Math.abs(u) * scale() < 0.5; };  // меньше метра — это не поправка
+  function pt(p){ return 'x' + p.x.toFixed(2) + ', y' + p.y.toFixed(2); }
+  function mils(deg){ return Math.round(deg * 6400 / 360); }
+  function azTxt(a){ return a.toFixed(1) + '° / ' + mils(a) + ' mil'; }
+
+  /* ---------- поле → точка, с подсветкой ---------- */
+  function read(id, echoId){
+    var raw = $(id).value.trim();
+    var p = parsePoint(raw);
+    var e = $(echoId);
+    if(!raw){ e.className = 'echo'; e.textContent = '—'; $(id).className = ''; return null; }
+    if(!p){ e.className = 'echo bad'; e.textContent = 'не понял'; $(id).className = 'bad'; return null; }
+    e.className = 'echo ok'; e.textContent = p.x.toFixed(2) + ' / ' + p.y.toFixed(2);
+    $(id).className = '';
+    return p;
+  }
+
+  /* ---------- поле-число (дальномер, метры), с подсветкой ---------- */
+  /* Знак задаёт направление вручную: «+» перед числом — цель выше базы, иначе ниже.
+     Само число — наклонная дальность, поэтому берём модуль, а знак уходит отдельным флагом. */
+  function readM(id, echoId){
+    var raw = $(id).value.trim();
+    var e = $(echoId);
+    if(!raw){ e.className = 'echo'; e.textContent = '—'; $(id).className = ''; return null; }
+    var up = raw.indexOf('+') > -1;
+    var v = Math.abs(parseFloat(raw.replace(/\s/g, '').replace(/[^\d.,+-]/g, '').replace(',', '.')));
+    if(!isFinite(v) || v <= 0){
+      e.className = 'echo bad'; e.textContent = 'не понял'; $(id).className = 'bad'; return null;
+    }
+    e.className = 'echo ok'; e.textContent = v.toFixed(2) + ' м ' + (up ? '↑' : '↓');
+    $(id).className = '';
+    return { r: v, up: up };
+  }
+
+  /* ---------- превышение цели по дальномеру ---------- */
+  /* Дальномер даёт наклонную дальность R до высшей точки цели (м); горизонтальная дальность
+     D = dT ед × масштаб (м). Превышение — второй катет: |h| = √(R² − D²). Знак берётся из ввода. */
+  var H_TOL = 1.5;   // м: точность координат 0.01 ед = 1 м, плюс запас на округление
+  function heightLine(meas, dT){
+    if(meas == null) return '';
+    var Dm = dT * scale();
+    if(meas.r - Dm < -H_TOL){
+      return '<br><span class="badline">дальномер ' + meas.r.toFixed(1) +
+             ' м короче горизонтальной дальности ' + Dm.toFixed(1) + ' м</span>';
+    }
+    var h = Math.sqrt(Math.max(0, meas.r*meas.r - Dm*Dm));
+    if(h <= H_TOL) return '<br><b>на одном уровне</b> с базой';
+    return '<br>' + (meas.up ? 'выше базы на <b>' : 'ниже базы на <b>') + h.toFixed(1) + ' м</b>';
+  }
+
+  /* ---------- основной расчёт ---------- */
+  function calc(){
+    var B = read('base', 'eBase'),
+        T = read('target', 'eTarget'),
+        R = readM('rf', 'eRf'),
+        C = read('corr', 'eCorr');
+
+    var big = $('dTarget'), sub = $('sTarget');
+
+    if(!B || !T){
+      big.className = 'big idle'; big.textContent = '—';
+      sub.textContent = !B ? 'введи базу' : 'введи цель';
+      $('tileFix').hidden = true; $('corrBox').hidden = true;
+      return;
+    }
+
+    var dT = dist(B, T), azT = bearing(B, T);
+    var l = len(dT);
+    big.className = 'big';
+    big.innerHTML = l.v + '<u>' + l.u + '</u>';
+    sub.innerHTML = 'азимут ' + azTxt(azT) + heightLine(R, dT);
+
+    if(!C){ $('tileFix').hidden = true; $('corrBox').hidden = true; return; }
+
+    /* поправка: ошибка = попадание − цель, зеркалим в полярных координатах
+       (дальность и направление — это ровно те две ручки, которые крутит миномётчик) */
+    var dC = dist(B, C), azC = bearing(B, C);
+    var dRange = dC - dT;                 // + перелёт, − недолёт
+    var dAz    = wrap180(azC - azT);      // + вправо, − влево
+    var side   = dC * Math.sin(dAz / DEG);
+    var miss   = dist(T, C);
+
+    var dFix  = dT - dRange;              // = 2·dT − dC
+    var azFix = (azT - dAz + 360) % 360;
+    var A     = project(B, azFix, dFix);
+
+    $('corrBox').hidden = false;
+    $('cMiss').textContent = lenTxt(miss);
+
+    if(HALF_M(miss)){
+      $('cRange').innerHTML = '<span class="hit">точно в цель</span>';
+      $('cSide').textContent = '—';
+      $('cPoint').textContent = pt(T);
+      $('cNote').hidden = true;
+      $('tileFix').hidden = true;
+      return;
+    }
+
+    $('cRange').innerHTML = HALF_M(dRange) ? '—' :
+      '<span class="' + (dRange > 0 ? 'up' : 'down') + '">' +
+      (dRange > 0 ? 'перелёт ' : 'недолёт ') + lenTxt(Math.abs(dRange)) + '</span>';
+
+    $('cSide').textContent = HALF_M(side) ? '—' :
+      (side > 0 ? 'вправо ' : 'влево ') + lenTxt(Math.abs(side)) +
+      '  (' + Math.abs(dAz).toFixed(1) + '°)';
+
+    var bad = dFix <= 0;
+    $('cPoint').textContent = bad ? '—' : pt(A);
+    $('cNote').hidden = !bad;
+    if(bad) $('cNote').textContent =
+      'Поправка больше самой дальности — похоже, в полях перепутаны точки.';
+
+    $('tileFix').hidden = bad;
+    if(!bad){
+      var lf = len(dFix);
+      $('dFix').innerHTML = lf.v + '<u>' + lf.u + '</u>';
+      $('sFix').innerHTML = 'азимут ' + azTxt(azFix) + '<br><b>' + pt(A) + '</b>';
+    }
+  }
+
+  /* ---------- обвязка ---------- */
+  var ids = ['base', 'target', 'rf', 'corr', 'scale'];
+  ids.forEach(function(id){ $(id).addEventListener('input', function(){ save(); calc(); }); });
+  $('clearCorr').addEventListener('click', function(){
+    $('corr').value = ''; $('corr').focus(); save(); calc();
+  });
+  $('clearAll').addEventListener('click', function(){
+    ['base', 'target', 'rf', 'corr'].forEach(function(id){ $(id).value = ''; });  // масштаб не трогаем
+    $('base').focus(); save(); calc();
+  });
+
+  /* localStorage под file:// работает не везде — поэтому всё в try/catch и не обязательно */
+  function save(){
+    try{
+      localStorage.setItem('wdm', JSON.stringify({
+        b: $('base').value, t: $('target').value, s: $('scale').value
+      }));
+    }catch(e){}
+  }
+  try{
+    var st = JSON.parse(localStorage.getItem('wdm') || '{}');
+    if(st.b) $('base').value = st.b;
+    if(st.t) $('target').value = st.t;
+    if(st.s) $('scale').value = st.s;
+  }catch(e){}
+
+  calc();
+})();
+</script>
+</body>
+</html>
