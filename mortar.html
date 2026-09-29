@@ -347,10 +347,13 @@
   /* ---------- основной расчёт ---------- */
   function calc(){
     var B = read('base', 'eBase'), T = read('target', 'eTarget');
-    var HM = readH('hMan', 'eHMan');
     var chainOn = $('chain').checked;
     var R = chainOn ? null : readM('rf', 'eRf');
-    if(chainOn) echo($('eRf'), 'echo', '—');
+    var HM = chainOn ? null : readH('hMan', 'eHMan');
+    if(chainOn){
+      echo($('eRf'), 'echo', '—'); echo($('eHMan'), 'echo', '—');
+      $('rf').className = ''; $('hMan').className = '';
+    }
     var big = $('dTarget'), sub = $('sTarget'), tile = $('tileFix');
 
     if(!B || !T){
@@ -451,7 +454,8 @@
   /* ---------- замер цепочкой через рекон ---------- */
   function applyChain(on){
     $('chainBox').hidden = !on;
-    $('rf').disabled = !!on;   /* свой дальномер неактивен и не учитывается */
+    $('rf').disabled = !!on;     /* свой дальномер неактивен и не учитывается */
+    $('hMan').disabled = !!on;   /* ручное превышение тоже, раз считаем по цепочке */
   }
   $('chain').addEventListener('change', function(){ applyChain(this.checked); save(); calc(); });
 
