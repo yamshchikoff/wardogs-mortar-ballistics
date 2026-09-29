@@ -185,8 +185,7 @@
     return (a + 360) % 360;
   }
   function dist(a, b){ return Math.hypot(b.x - a.x, b.y - a.y); }
-  function mils(deg){ return Math.round(deg * 6400 / 360); }
-  function azTxt(a){ return a.toFixed(1) + '° / ' + mils(a) + ' mil'; }
+  function azTxt(a){ return a.toFixed(1) + '°'; }
 
   /* ---------- форматирование ---------- */
   var DEFAULT_SCALE = 100;
@@ -195,28 +194,28 @@
   var H_TOL = 1.5;   // м: точность координат 0.01 ед = 1 м
 
   /* ---------- поля ---------- */
+  function echo(el, cls, txt){ if(el){ el.className = cls; el.textContent = txt; } }
+
   function read(id, echoId){
     var raw = $(id).value.trim();
     var p = parsePoint(raw);
     var e = $(echoId);
-    if(!raw){ e.className = 'echo'; e.textContent = '—'; $(id).className = ''; return null; }
-    if(!p){ e.className = 'echo bad'; e.textContent = 'не понял'; $(id).className = 'bad'; return null; }
-    e.className = 'echo ok'; e.textContent = p.x.toFixed(2) + ' / ' + p.y.toFixed(2);
+    if(!raw){ echo(e, 'echo', '—'); $(id).className = ''; return null; }
+    if(!p){ echo(e, 'echo bad', 'не понял'); $(id).className = 'bad'; return null; }
+    echo(e, 'echo ok', p.x.toFixed(2) + ' / ' + p.y.toFixed(2));
     $(id).className = '';
     return p;
   }
 
-  /* дальномер: метры, знак «+» = цель выше базы */
+  /* дальномер: метры; «−» = цель ниже базы, иначе выше */
   function readM(id, echoId){
     var raw = $(id).value.trim();
     var e = $(echoId);
-    if(!raw){ e.className = 'echo'; e.textContent = '—'; $(id).className = ''; return null; }
-    var up = raw.indexOf('-') === -1;   /* минус = цель ниже базы, иначе выше */
+    if(!raw){ echo(e, 'echo', '—'); $(id).className = ''; return null; }
+    var up = raw.indexOf('-') === -1;
     var v = Math.abs(parseFloat(raw.replace(/\s/g, '').replace(/[^\d.,+-]/g, '').replace(',', '.')));
-    if(!isFinite(v) || v <= 0){
-      e.className = 'echo bad'; e.textContent = 'не понял'; $(id).className = 'bad'; return null;
-    }
-    e.className = 'echo ok'; e.textContent = v.toFixed(2) + ' м ' + (up ? '↑' : '↓');
+    if(!isFinite(v) || v <= 0){ echo(e, 'echo bad', 'не понял'); $(id).className = 'bad'; return null; }
+    echo(e, 'echo ok', v.toFixed(2) + ' м ' + (up ? '↑' : '↓'));
     $(id).className = '';
     return { r: v, up: up };
   }
@@ -225,12 +224,10 @@
   function readH(id, echoId){
     var raw = $(id).value.trim();
     var e = $(echoId);
-    if(!raw){ e.className = 'echo'; e.textContent = '—'; $(id).className = ''; return null; }
+    if(!raw){ echo(e, 'echo', '—'); $(id).className = ''; return null; }
     var v = parseFloat(raw.replace(/\s/g, '').replace(/[^\d.,+\-]/g, '').replace(',', '.'));
-    if(!isFinite(v)){
-      e.className = 'echo bad'; e.textContent = 'не понял'; $(id).className = 'bad'; return null;
-    }
-    e.className = 'echo ok'; e.textContent = (v > 0 ? '+' : '') + v.toFixed(1) + ' м';
+    if(!isFinite(v)){ echo(e, 'echo bad', 'не понял'); $(id).className = 'bad'; return null; }
+    echo(e, 'echo ok', (v > 0 ? '+' : '') + v.toFixed(1) + ' м');
     $(id).className = '';
     return v;
   }
@@ -240,6 +237,7 @@
      Значения — подгонка по шкале прицела, временам и полевым выстрелам (см. models.md). */
   var V0 = 261.0, GAM = 0.04238, BETA = 0.00235, G = 9.81;
   var TH0 = 33.54, CDEG = 0.058418;
+  var MIL_MAX = (90 - TH0) / CDEG;   /* предел наводки: ствол не задирается выше 90° */
 
   /* RK4-шаг. Возвращает траекторию угла theta и горизонтали, где она пересекает
      высоту H: восходящую (up) и нисходящую (down); ничья через null. */
@@ -297,7 +295,10 @@
         pv = val; pth = 15 + i;
       }
     });
-    return out.filter(function(s){ return s.mil >= 0 && s.mil <= 1200; });
+    /* оставляем физически наводимые: mil от 0 до предела (ствол не выше 90°).
+       порог — по геометрии, а не по плоской таблице: при превышении цель может быть
+       достижима на милах вне её диапазона (прямая наводка, высокая база). */
+    return out.filter(function(s){ return s.mil >= 0 && s.mil <= MIL_MAX; });
   }
 
   /* ---------- основной расчёт ---------- */
@@ -356,11 +357,15 @@
   }
 
   /* ---------- обвязка ---------- */
+  /* пересчёт тяжёлый (~30 мс) — дебаунсим, чтобы не тормозить набор */
+  var timer = null;
+  function schedule(){ if(timer) clearTimeout(timer); timer = setTimeout(calc, 90); }
+
   var ids = ['base', 'target', 'rf', 'hMan', 'scale'];
   ids.forEach(function(id){
     $(id).addEventListener('input', function(){
       if(id === 'rf') $('hMan').value = '';   /* новое показание дальномера снимает ручное превышение */
-      save(); calc();
+      save(); schedule();
     });
   });
   $('clearAll').addEventListener('click', function(){
