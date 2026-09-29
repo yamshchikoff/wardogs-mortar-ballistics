@@ -74,6 +74,10 @@
   .set label{color:var(--dim);display:flex;align-items:center;gap:6px;cursor:pointer}
   .set input[type=text]{flex:0 0 80px;font-size:13px;padding:5px 8px;text-align:center}
   .set input[type=checkbox]{accent-color:var(--accent);width:15px;height:15px}
+  .chk{display:flex;align-items:center;gap:7px;font-size:12px;color:var(--dim);
+       margin:0 0 12px;cursor:pointer}
+  .chk input[type=checkbox]{accent-color:var(--accent);width:15px;height:15px}
+  input[type=text]:disabled{opacity:.4}
   button{background:#222c26;color:var(--txt);border:1px solid var(--line);font:inherit;
          font-size:12px;padding:6px 12px;border-radius:6px;cursor:pointer}
   button:hover{border-color:var(--accent);color:var(--accent)}
@@ -115,6 +119,32 @@
     <input type="text" id="hMan" placeholder="превыш., м" spellcheck="false" class="short"
            aria-label="превышение вручную, метры">
     <div class="echo" id="eRf">—</div>
+  </div>
+</div>
+
+<label class="chk"><input type="checkbox" id="chain"> дистанция до цели цепочкой через рекон</label>
+
+<div id="chainBox" hidden>
+  <div class="field">
+    <label for="recon">Рекон <span>— координаты союзника</span></label>
+    <div class="field-in">
+      <input type="text" id="recon" placeholder="x98.10, y109.90" spellcheck="false">
+      <div class="echo" id="eRecon">—</div>
+    </div>
+  </div>
+  <div class="field">
+    <label for="rfRecon">Дальномер до рекона <span>— м; «−» если рекон ниже базы</span></label>
+    <div class="field-in">
+      <input type="text" id="rfRecon" placeholder="дальномер, м" spellcheck="false">
+      <div class="echo" id="eRfRecon">—</div>
+    </div>
+  </div>
+  <div class="field">
+    <label for="rfTarget">Дальномер с рекона до цели <span>— м; «−» если цель ниже рекона</span></label>
+    <div class="field-in">
+      <input type="text" id="rfTarget" placeholder="дальномер, м" spellcheck="false">
+      <div class="echo" id="eRfTarget">—</div>
+    </div>
   </div>
 </div>
 
@@ -317,7 +347,10 @@
   /* ---------- основной расчёт ---------- */
   function calc(){
     var B = read('base', 'eBase'), T = read('target', 'eTarget');
-    var R = readM('rf', 'eRf'), HM = readH('hMan', 'eHMan');
+    var HM = readH('hMan', 'eHMan');
+    var chainOn = $('chain').checked;
+    var R = chainOn ? null : readM('rf', 'eRf');
+    if(chainOn) echo($('eRf'), 'echo', '—');
     var big = $('dTarget'), sub = $('sTarget'), tile = $('tileFix');
 
     if(!B || !T){
@@ -342,9 +375,25 @@
     big.className = 'big';
     big.innerHTML = l.v + '<u>' + l.u + '</u>';
 
-    /* высота цели: ручное превышение перекрывает дальномер */
-    var H = null, src = '', bad = '';
+    /* высота цели: ручное превышение > цепочка через рекон > свой дальномер */
+    var H = null, src = '', bad = '', tail = '';
     if(HM !== null){ H = HM; src = 'вручную'; }
+    else if(chainOn){
+      var Rc = read('recon', 'eRecon'), M1 = readM('rfRecon', 'eRfRecon'), M2 = readM('rfTarget', 'eRfTarget');
+      if(Rc && M1 && M2){
+        var dBR = dist(B, Rc) * scale(), dRT = dist(Rc, T) * scale();
+        if(M1.r < dBR - H_TOL){
+          bad = 'дальномер до рекона ' + M1.r.toFixed(1) + ' м короче ' + dBR.toFixed(0) + ' м';
+        } else if(M2.r < dRT - H_TOL){
+          bad = 'дальномер с рекона ' + M2.r.toFixed(1) + ' м короче ' + dRT.toFixed(0) + ' м';
+        } else {
+          var h1 = Math.sqrt(Math.max(0, M1.r*M1.r - dBR*dBR)) * (M1.up ? 1 : -1);
+          var h2 = Math.sqrt(Math.max(0, M2.r*M2.r - dRT*dRT)) * (M2.up ? 1 : -1);
+          H = h1 + h2; src = 'через рекон';
+          tail = '<br>рекон к базе ' + signed(h1) + ', цель к рекону ' + signed(h2);
+        }
+      }
+    }
     else if(R !== null){
       if(R.r < Dm - H_TOL){
         bad = 'дальномер ' + R.r.toFixed(1) + ' м короче горизонтали ' + Dm.toFixed(0) + ' м';
@@ -355,7 +404,7 @@
     }
     if(H === null && !bad){ H = 0; src = ''; }
 
-    sub.innerHTML = 'азимут ' + azTxt(azT) + heightLine(H, src, bad);
+    sub.innerHTML = 'азимут ' + azTxt(azT) + heightLine(H, src, bad) + tail;
 
     if(bad){ tile.hidden = true; return; }
 
@@ -371,6 +420,8 @@
     }).join('');
   }
 
+  function signed(x){ return (x >= 0 ? '+' : '−') + Math.abs(x).toFixed(1) + ' м'; }
+
   function heightLine(H, src, bad){
     if(bad) return '<br><span class="badline">' + bad + '</span>';
     if(!src) return '<br>высота не задана — цель на уровне базы';
@@ -384,7 +435,7 @@
   var timer = null;
   function schedule(){ if(timer) clearTimeout(timer); timer = setTimeout(calc, 90); }
 
-  var ids = ['base', 'target', 'rf', 'hMan', 'scale'];
+  var ids = ['base', 'target', 'rf', 'hMan', 'recon', 'rfRecon', 'rfTarget', 'scale'];
   ids.forEach(function(id){
     $(id).addEventListener('input', function(){
       if(id === 'rf') $('hMan').value = '';   /* новое показание дальномера снимает ручное превышение */
@@ -392,9 +443,17 @@
     });
   });
   $('clearAll').addEventListener('click', function(){
-    ['base', 'target', 'rf', 'hMan'].forEach(function(id){ $(id).value = ''; });  // масштаб не трогаем
+    ['base', 'target', 'rf', 'hMan', 'recon', 'rfRecon', 'rfTarget']
+      .forEach(function(id){ $(id).value = ''; });   // масштаб не трогаем
     $('base').focus(); save(); calc();
   });
+
+  /* ---------- замер цепочкой через рекон ---------- */
+  function applyChain(on){
+    $('chainBox').hidden = !on;
+    $('rf').disabled = !!on;   /* свой дальномер неактивен и не учитывается */
+  }
+  $('chain').addEventListener('change', function(){ applyChain(this.checked); save(); calc(); });
 
   /* ---------- режим для дальтоников ---------- */
   function applyCb(on){ document.documentElement.classList.toggle('cb', !!on); }
@@ -404,7 +463,9 @@
   function save(){
     try{
       localStorage.setItem('wdm', JSON.stringify({
-        b: $('base').value, t: $('target').value, s: $('scale').value, cb: $('cb').checked
+        b: $('base').value, t: $('target').value, s: $('scale').value, cb: $('cb').checked,
+        chain: $('chain').checked, recon: $('recon').value,
+        rfRecon: $('rfRecon').value, rfTarget: $('rfTarget').value
       }));
     }catch(e){}
   }
@@ -414,7 +475,12 @@
     if(st.t) $('target').value = st.t;
     if(st.s) $('scale').value = st.s;
     if(st.cb){ $('cb').checked = true; applyCb(true); }
+    if(st.recon) $('recon').value = st.recon;
+    if(st.rfRecon) $('rfRecon').value = st.rfRecon;
+    if(st.rfTarget) $('rfTarget').value = st.rfTarget;
+    if(st.chain) $('chain').checked = true;
   }catch(e){}
+  applyChain($('chain').checked);
 
   calc();
 })();
