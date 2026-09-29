@@ -1,0 +1,218 @@
+{
+  "name": "wardogs-l81-range-mil",
+  "description": "Соответствие дальности и угла прицела миномёта L81 (Wardogs), считано с 5 скриншотов",
+  "weapon": "миномёт L81",
+  "range_unit": "m",
+  "angle_unit": "mil",
+  "mil_step": 50,
+  "sources": [
+    "1.png",
+    "2.png",
+    "3.png",
+    "4.png",
+    "5.png"
+  ],
+  "points": [
+    {
+      "mil": 150,
+      "range_m": 684,
+      "range_step_m": null
+    },
+    {
+      "mil": 200,
+      "range_m": 661,
+      "range_step_m": -23
+    },
+    {
+      "mil": 250,
+      "range_m": 637,
+      "range_step_m": -24
+    },
+    {
+      "mil": 300,
+      "range_m": 609,
+      "range_step_m": -28
+    },
+    {
+      "mil": 350,
+      "range_m": 578,
+      "range_step_m": -31
+    },
+    {
+      "mil": 400,
+      "range_m": 545,
+      "range_step_m": -33
+    },
+    {
+      "mil": 450,
+      "range_m": 510,
+      "range_step_m": -35
+    },
+    {
+      "mil": 500,
+      "range_m": 470,
+      "range_step_m": -40
+    },
+    {
+      "mil": 550,
+      "range_m": 430,
+      "range_step_m": -40
+    },
+    {
+      "mil": 600,
+      "range_m": 385,
+      "range_step_m": -45
+    },
+    {
+      "mil": 650,
+      "range_m": 340,
+      "range_step_m": -45
+    },
+    {
+      "mil": 700,
+      "range_m": 290,
+      "range_step_m": -50
+    },
+    {
+      "mil": 750,
+      "range_m": 240,
+      "range_step_m": -50
+    },
+    {
+      "mil": 800,
+      "range_m": 187,
+      "range_step_m": -53
+    },
+    {
+      "mil": 850,
+      "range_m": 132,
+      "range_step_m": -55
+    },
+    {
+      "mil": 900,
+      "range_m": 110,
+      "range_step_m": -22
+    },
+    {
+      "mil": 950,
+      "range_m": 80,
+      "range_step_m": -30
+    }
+  ],
+  "raw_captures": [
+    {
+      "frame": "1.png",
+      "mil": 150,
+      "range_m": 684
+    },
+    {
+      "frame": "1.png",
+      "mil": 200,
+      "range_m": 661
+    },
+    {
+      "frame": "2.png",
+      "mil": 200,
+      "range_m": 661
+    },
+    {
+      "frame": "2.png",
+      "mil": 250,
+      "range_m": 637
+    },
+    {
+      "frame": "2.png",
+      "mil": 300,
+      "range_m": 609
+    },
+    {
+      "frame": "2.png",
+      "mil": 350,
+      "range_m": 578
+    },
+    {
+      "frame": "3.png",
+      "mil": 400,
+      "range_m": 545
+    },
+    {
+      "frame": "3.png",
+      "mil": 450,
+      "range_m": 510
+    },
+    {
+      "frame": "3.png",
+      "mil": 500,
+      "range_m": 470
+    },
+    {
+      "frame": "3.png",
+      "mil": 550,
+      "range_m": 430
+    },
+    {
+      "frame": "4.png",
+      "mil": 600,
+      "range_m": 385
+    },
+    {
+      "frame": "4.png",
+      "mil": 650,
+      "range_m": 340
+    },
+    {
+      "frame": "4.png",
+      "mil": 700,
+      "range_m": 290
+    },
+    {
+      "frame": "4.png",
+      "mil": 750,
+      "range_m": 240
+    },
+    {
+      "frame": "5.png",
+      "mil": 800,
+      "range_m": 187
+    },
+    {
+      "frame": "5.png",
+      "mil": 850,
+      "range_m": 132
+    },
+    {
+      "frame": "5.png",
+      "mil": 900,
+      "range_m": 110
+    },
+    {
+      "frame": "5.png",
+      "mil": 950,
+      "range_m": 80
+    }
+  ],
+  "checks": {
+    "monotonic_decreasing": true,
+    "duplicate_consistent": true,
+    "gross_contradictions": false,
+    "nonlinearity_near_min_range": {
+      "mil_steps": [
+        850,
+        900,
+        950
+      ],
+      "range_steps_m": [
+        -55,
+        -22,
+        -30
+      ],
+      "comment": "минимальные дальности: у максимума возвышения связь существенно нелинейна, немонотонный шаг ожидаем и подтверждает корректность считывания"
+    },
+    "mil_per_circle": "не определяется по этим кадрам"
+  },
+  "notes": [
+    "Верхняя азимутальная шкала (30,45,60,75,90,105) в выгрузку не включена.",
+    "Таблица привязана к заряду, на котором сняты скриншоты (в кадрах не указан).",
+    "Пары 200/661 совпали в кадрах 1 и 2 — кадры объединены в одну серию."
+  ]
+}
